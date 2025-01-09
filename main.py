@@ -11,6 +11,7 @@ async def start(update, context):
     context.bot_data[group_id]["submissions"] = {}
 
     await update.message.reply_text("Voice memos cleared...")
+    await update.message.reply_text("Send voice memos to the bot, or use /help to see other commands")
 
 async def help(update, context):
     help_text = """
@@ -19,7 +20,6 @@ Here are the commands for this bot:
 /help: Show this help menu.
 /start: Reset the standup for the week.
 /status: See who has and has not submitted.
-/unlock: Unlock the voice memos
 /add_me: Add you to the list of users
 /display_users: Show the list of members
 
@@ -30,7 +30,7 @@ Automated unlocking
 Automated reminders to submit
 Automated clearing each week
 """
-    await update.message.reply_text(help_text)
+    await update.message.reply_text(help_text) # @jrandolph update with instructions (everyone has to submit their names)
 
 async def status(update, context):
     group_id = update.message.chat_id
@@ -67,27 +67,33 @@ async def handle_voice(update, context):
     user_id = update.message.from_user.id
     group_id = update.message.chat_id
 
+    user = update.message.from_user
+    user_identifier = user.username or f"{user.first_name} {user.last_name or ''}"
+
     # Save voice memo file ID
     voice_file_id = update.message.voice.file_id
     context.bot_data[group_id]["submissions"][user_id] = voice_file_id
 
     # Notify user
-    await update.message.reply_text("Voice memo submitted!")
+    await update.message.reply_text(f"Voice memo submitted by {user_identifier}!")
 
-async def unlock(update, context):
-    group_id = update.message.chat_id
+    # delete message
+    message_id = update.message.message_id
+    try:
+        await context.bot.delete_message(chat_id=group_id, message_id=message_id)
+    except Exception as e:
+        await update.message.reply_text(f"Error deleting message: {e}")
+
+    # return voice memos if all have been submitted
     data = context.bot_data.get(group_id, {})
-
     submissions = data.get("submissions", [])
     members = data.get("members", [])
-    
     if len(submissions) == len(members) and len(submissions) > 0:
-        await update.message.reply_text("All memos submitted! Here they are:")
+        await context.bot.send_message(chat_id=group_id, text="All memos submitted! Here they are:")
         for user_id, file_id in submissions.items():
             await context.bot.send_voice(chat_id=group_id, voice=file_id)
     else:
-        await update.message.reply_text("Still waiting for some people to submit.")
-
+        await context.bot.send_message(chat_id=group_id, text="Still waiting for the following people to submit:")
 
 def main():
     print('booting up the bot...')
@@ -99,7 +105,6 @@ def main():
     application.add_handler(CommandHandler("help", help))
     application.add_handler(CommandHandler("status", status))
     application.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    application.add_handler(CommandHandler("unlock", unlock))
     application.add_handler(CommandHandler("add_me", add_me))
     application.add_handler(CommandHandler("display_users", display_users))
 
