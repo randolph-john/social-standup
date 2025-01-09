@@ -74,9 +74,9 @@ async def add_me(update, context):
 async def display_users(update, context):
     group_id = update.message.chat_id
     data = context.bot_data.get(group_id, {})
-    members = data.get("members", [])
-    if members:
-        member_list = "\n".join(members)
+    member_names = data.get("member_names", {})
+    if member_names:
+        member_list = "\n".join(member_names.keys())
         await update.message.reply_text(f"Group members:\n{member_list}")
     else:
         await update.message.reply_text("No members have been added yet.")
