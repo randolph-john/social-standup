@@ -128,8 +128,16 @@ async def fuck_you(update, context):
     await update.message.reply_text("Fuck you, you fuckin' fuck! I eat pieces of shit like you for breakfast!")
 
 # ------------ Main functions ------------
-# Start Telegram bot as an asyncio task
-async def start_bot():
+def start_bot(application):
+    application.run_polling()
+
+def start_flask():
+    port = int(os.environ.get("PORT", 5001))
+    flask_app.run(host="0.0.0.0", port=port)
+
+def main():
+    print('booting up the bot...')
+    # Create the Application
     application = Application.builder().token(TOKEN).build()
 
     # Add command handlers
@@ -144,20 +152,12 @@ async def start_bot():
     application.add_handler(CommandHandler("exit", leave))
     application.add_handler(CommandHandler("fuck_you", fuck_you))
 
-    # Run the bot
-    await application.run_polling()
+    # Start the Telegram bot in a separate thread
+    threading.Thread(target=start_flask).start()  # Flask runs in a separate thread
+    start_bot(application)  # Run the bot in the main thread
 
-# Start Flask server as an asyncio task
-async def start_flask():
-    port = int(os.environ.get("PORT", 5000))  # Render expects this environment variable
-    # Run Flask server asynchronously
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, flask_app.run, "0.0.0.0", port)
-
-# Main function to run both concurrently
-async def main():
-    # Run both the Flask server and Telegram bot concurrently
-    await asyncio.gather(start_flask(), start_bot())
+    # Start the Flask server
+    # start_flask()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
