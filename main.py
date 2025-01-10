@@ -129,7 +129,7 @@ async def fuck_you(update, context):
 
 # ------------ Main functions ------------
 def start_bot(application):
-    asyncio.run(application.run_polling())
+    application.run_polling()
 
 def start_flask():
     port = int(os.environ.get("PORT", 5001))
