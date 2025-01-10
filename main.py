@@ -1,11 +1,20 @@
 # -*- coding: utf-8 -*-
+from flask import Flask
 from telegram import ChatMember, Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import os
+import threading
 import asyncio
 import schedule
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
+
+# Flask app to bind to the port
+flask_app = Flask(__name__)
+
+@flask_app.route("/")
+def home():
+    return "The bot is running!"
 
 # ------------ Helper methods ------------
 def get_non_submitters(data):
@@ -33,11 +42,7 @@ async def help(update, context):
 /add_me: Add you to the list of users
 /display_users: Show the list of members
 
-Make sure to run /add_me to add yourself to the members, then send a voice memo
-
-Other features I need to implement:
-Automated reminders to submit
-Automated clearing each week
+Make sure to run /add_me to add yourself to the members, then send a voice memo!
 """
     await update.message.reply_text(help_text)
 
@@ -76,7 +81,7 @@ async def display_users(update, context):
     data = context.bot_data.get(group_id, {})
     member_names = data.get("member_names", {})
     if member_names:
-        member_list = "\n".join(member_names.keys())
+        member_list = "\n".join(member_names.values())
         await update.message.reply_text(f"Group members:\n{member_list}")
     else:
         await update.message.reply_text("No members have been added yet.")
@@ -122,31 +127,14 @@ async def leave(update, context):
 async def fuck_you(update, context):
     await update.message.reply_text("Fuck you, you fuckin' fuck! I eat pieces of shit like you for breakfast!")
 
-
-# ------------ Scheduling stuff ------------
-# (doesn't work yet) TODO @jrandolph
-async def send_weekly_message():
-    bot = Bot(token=TOKEN)    
-    try:
-        await bot.send_message(
-            chat_id=CHAT_ID,
-            text="Good morning! It's Wednesday—time to send your voice memos!"
-        )
-        print("Sent Wednesday reminder message")
-    except Exception as e:
-        print(f"Failed to send Wednesday reminder message: {e}")
-
-def schedule_task():
-    schedule.every().wednesday.at("09:00").do(lambda: asyncio.run(send_weekly_message()))
-
-async def scheduler():
-    schedule_task()
-    while True:
-        schedule.run_pending()
-        await asyncio.sleep(1)
-
 # ------------ Main functions ------------
-# async def main(): TODO @jrandolph for scheduler
+def start_bot(application):
+    asyncio.run(application.run_polling())
+
+def start_flask():
+    port = int(os.environ.get("PORT", 5001))
+    flask_app.run(host="0.0.0.0", port=port)
+
 def main():
     print('booting up the bot...')
     # Create the Application
@@ -164,10 +152,12 @@ def main():
     application.add_handler(CommandHandler("exit", leave))
     application.add_handler(CommandHandler("fuck_you", fuck_you))
 
-    # Start the bot
-    application.run_polling()
-    # await scheduler() TODO @jrandolph
+    # Start the Telegram bot in a separate thread
+    threading.Thread(target=start_flask).start()  # Flask runs in a separate thread
+    start_bot(application)  # Run the bot in the main thread
+
+    # Start the Flask server
+    # start_flask()
 
 if __name__ == "__main__":
-    # asyncio.run(main()) TODO @jrandolph for scheduler
     main()
